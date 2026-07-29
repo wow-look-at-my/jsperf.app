@@ -146,16 +146,27 @@ async function testKioskFragment(browser) {
   check(await empty.locator('.jsperf-empty').isVisible(), 'kiosk template: an empty template says how to package a case')
   await empty.close()
 
+  // Test bodies do real work and check their own result. A body an engine can
+  // delete entirely measures as Infinity ops/sec, which the driver reports as
+  // unmeasurable - correct behaviour, but it makes for a flaky test fixture.
   const testCase = {
     title: 'fragment case',
     info: '',
     initHTML: '',
-    setup: 'const n = 21',
+    setup: 'const size = 200',
     teardown: '',
     autorun: false,
     tests: [
-      { title: 'double', code: 'const x = n * 2', async: false },
-      { title: 'add', code: 'const x = n + n', async: false }
+      {
+        title: 'push',
+        code: 'const out = []\nfor (let i = 0; i < size; i += 1) out.push(i * 2)\nif (out.length !== size) throw new Error("wrong length")',
+        async: false
+      },
+      {
+        title: 'preallocated',
+        code: 'const out = new Array(size)\nfor (let i = 0; i < size; i += 1) out[i] = i * 2\nif (out[size - 1] !== (size - 1) * 2) throw new Error("wrong value")',
+        async: false
+      }
     ]
   }
   // A fresh page, because a goto that only changes the fragment is a
@@ -187,11 +198,14 @@ async function testApp(browser) {
   check((await page.locator('[data-jsperf-editor]').count()) === 1, 'app: the editor is present')
 
   await page.fill('[data-jsperf-field="title"]', 'smoke: string building')
+  const joinCode = 'const out = parts.join("")\nif (out.length !== 4) throw new Error("bad")'
+  const concatCode = 'let out = ""\nfor (const part of parts) { out += part }\nif (out.length !== 4) throw new Error("bad")'
+
   await page.fill('[data-jsperf-field="setup"]', 'const parts = ["a", "b", "c", "d"]')
   await page.fill('[data-jsperf-field="test-title-0"]', 'join')
-  await page.fill('[data-jsperf-field="test-code-0"]', 'const out = parts.join("")')
+  await page.fill('[data-jsperf-field="test-code-0"]', joinCode)
   await page.fill('[data-jsperf-field="test-title-1"]', 'concat in a loop')
-  await page.fill('[data-jsperf-field="test-code-1"]', 'let out = ""\nfor (const part of parts) { out += part }')
+  await page.fill('[data-jsperf-field="test-code-1"]', concatCode)
 
   const results = await runQuickAndWait(page, 2)
   check(
@@ -218,7 +232,7 @@ async function testApp(browser) {
     'app: the edited case survived a reload'
   )
   check(
-    (await page.inputValue('[data-jsperf-field="test-code-0"]')) === 'const out = parts.join("")',
+    (await page.inputValue('[data-jsperf-field="test-code-0"]')) === joinCode,
     'app: the edited test code survived a reload'
   )
   check(
@@ -256,8 +270,16 @@ async function testSandboxIsolation(browser, work) {
   const testCase = {
     title: 'isolation',
     tests: [
-      { title: 'reach out', code: 'try { window.parent.document.title = "pwned" } catch (e) { void e }', async: false },
-      { title: 'noop', code: 'const x = 1 + 1', async: false }
+      {
+        title: 'reach out',
+        code: 'try { window.parent.document.title = "pwned" } catch (e) { void e }\nconst out = []\nfor (let i = 0; i < 50; i += 1) out.push(i)\nif (out.length !== 50) throw new Error("bad")',
+        async: false
+      },
+      {
+        title: 'work',
+        code: 'const out = []\nfor (let i = 0; i < 50; i += 1) out.push(i * 3)\nif (out.length !== 50) throw new Error("bad")',
+        async: false
+      }
     ]
   }
   const { writeFileSync } = await import('node:fs')
