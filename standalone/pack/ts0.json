@@ -1,0 +1,9 @@
+{
+  "entry": "src/main.ts",
+  "outfile": "../dist/jsperf-pack.mjs",
+  "target": "node",
+  "format": "esm",
+  "strict": true,
+  "minify": false,
+  "sourcemap": false
+}

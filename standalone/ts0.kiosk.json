@@ -1,0 +1,10 @@
+{
+  "entry": "src/kiosk/kiosk.html",
+  "outfile": "dist/jsperf-kiosk.html",
+  "target": "browser",
+  "format": "esm",
+  "strict": true,
+  "minify": false,
+  "sourcemap": false,
+  "embedAssets": false
+}

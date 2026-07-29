@@ -1,0 +1,121 @@
+/* App-only styling: the editor and the saved-case library. The kiosk build
+   contains none of this. */
+
+.jsperf-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0.75rem 0 1.25rem;
+}
+
+table.jsperf-library {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.jsperf-library th,
+table.jsperf-library td {
+  border: 1px solid var(--jsp-border);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+table.jsperf-library th {
+  background: var(--jsp-bg-alt);
+}
+
+table.jsperf-library tr.jsperf-current td {
+  background: #eff6ff;
+  font-weight: 600;
+}
+
+table.jsperf-library td.jsperf-actions {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.jsperf-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: flex-start;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--jsp-bg-alt);
+}
+
+.jsperf-field > label {
+  width: 12rem;
+  font-weight: 600;
+  padding-top: 0.35rem;
+}
+
+.jsperf-field .jsperf-control {
+  flex: 1;
+  min-width: 18rem;
+}
+
+.jsperf-field .jsperf-hint {
+  display: block;
+  font-weight: 400;
+  font-size: 0.8rem;
+  color: var(--jsp-muted);
+}
+
+input[type="text"],
+textarea {
+  font: inherit;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--jsp-border);
+  border-radius: 3px;
+  background: #fff;
+  color: inherit;
+}
+
+textarea.jsperf-code {
+  min-height: 7rem;
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+fieldset.jsperf-test {
+  border: 1px solid var(--jsp-border);
+  border-radius: 4px;
+  margin: 0 0 1rem;
+  padding: 0 1rem 0.5rem;
+}
+
+fieldset.jsperf-test legend {
+  font-weight: 700;
+  padding: 0 0.4rem;
+}
+
+.jsperf-async {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 400;
+}
+
+.jsperf-async input {
+  width: auto;
+}
+
+.jsperf-packaging {
+  border: 1px solid var(--jsp-border);
+  border-left: 4px solid var(--jsp-blue);
+  background: var(--jsp-bg-alt);
+  padding: 0.5rem 1rem;
+  margin: 1rem 0;
+}
+
+.jsperf-packaging pre {
+  background: #fff;
+  border: 1px solid var(--jsp-border);
+  padding: 0.4rem 0.6rem;
+  overflow-x: auto;
+}

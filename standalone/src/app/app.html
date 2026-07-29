@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>jsPerf standalone</title>
+    <link rel="stylesheet" href="../shared/style.css" />
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <div class="jsperf-page">
+      <header class="jsperf-header">
+        <a class="jsperf-brand" href="https://jsperf.app">jsPerf</a>
+        <h1>standalone</h1>
+        <span class="jsperf-spacer"></span>
+        <span class="jsperf-muted" id="jsperf-storage-note"></span>
+      </header>
+      <section id="jsperf-library"></section>
+      <section id="jsperf-editor" data-jsperf-editor="true"></section>
+      <section id="jsperf-runner"></section>
+      <footer class="jsperf-footer">
+        One file, no server: test cases are saved in this browser's localStorage
+        and benchmarks run in a sandboxed iframe inside this page. Built from
+        <a href="https://jsperf.app">jsPerf.app</a> with
+        <a href="https://benchmarkjs.com">Benchmark.js</a>.
+      </footer>
+    </div>
+    <script src="./main.ts"></script>
+  </body>
+</html>
