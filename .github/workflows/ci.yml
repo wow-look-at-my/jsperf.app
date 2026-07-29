@@ -18,8 +18,8 @@ jobs:
           cache: npm
           cache-dependency-path: standalone/package-lock.json
 
-      # lodash (Benchmark.js needs it) and playwright (the browser smoke). The
-      # published artifacts themselves depend on nothing.
+      # lodash (Benchmark.js needs it), @types/node (the TypeScript harness) and
+      # playwright (the browser smoke). The published artifacts depend on nothing.
       - name: Install build and test dependencies
         working-directory: standalone
         run: npm ci

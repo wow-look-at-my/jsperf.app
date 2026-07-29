@@ -71,14 +71,16 @@ into the same format.
 
 ```sh
 cd standalone
-npm ci                # lodash (Benchmark.js needs it) + playwright (smoke only)
+npm ci                # lodash (Benchmark.js needs it), @types/node, playwright
 npm run build         # -> dist/
 npm run verify        # assert what the artifacts claim to be
 npm run smoke         # run both builds in real chromium, from file://
 ```
 
 `npm run build` downloads the prebuilt [ts0](https://github.com/wow-look-at-my/ts0)
-compiler to `.cache/` on first use; set `TS0=/path/to/ts0` to use your own.
+compiler to `.cache/` on first use; set `TS0=/path/to/ts0` to use your own. The
+build/verify/smoke scripts are TypeScript as well, and are type-checked by the
+same gate as the app: a type error in the harness fails the build.
 
 Design notes, the build pipeline and the postMessage protocol are in
 [`docs/standalone.md`](../docs/standalone.md).

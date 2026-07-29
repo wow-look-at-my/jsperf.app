@@ -1,24 +1,25 @@
-#!/usr/bin/env node
 /**
  * Run both builds in a real browser, from a real file:// URL.
  *
- *   node standalone/scripts/browser-smoke.mjs
+ *   node --experimental-strip-types standalone/scripts/browser-smoke.ts
  *
  * This is the check that matters: the artifacts exist to be double-clicked, and
  * only a browser can prove that a sandboxed srcdoc iframe runs Benchmark.js, that
  * ops/sec come back, and that localStorage survives a reload - from file://,
  * where a page has no origin to speak of.
  *
- * Needs Playwright's chromium (`npm install` in standalone/, then
+ * Needs Playwright's chromium (`npm ci` in standalone/, then
  * `npx playwright install chromium` unless PLAYWRIGHT_BROWSERS_PATH already has
- * one). Nothing else in the build or verify path needs npm.
+ * one). The in-page callbacks below are typed against the DOM lib, which is why
+ * standalone/ is a browser-target ts0 project - they do run in a browser.
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { pathToFileURL, fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import type { Browser, Page } from 'playwright'
 
 const standaloneDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const APP = join(standaloneDir, 'dist', 'jsperf.html')
@@ -28,10 +29,16 @@ const EXAMPLE = join(standaloneDir, 'examples', 'array-iteration')
 
 const RESULT_TIMEOUT_MS = 120_000
 
+interface ResultRow {
+  hz: string
+  fastest: boolean
+  error: boolean
+}
+
 let failures = 0
 let checks = 0
 
-function check(condition, description, detail = '') {
+function check(condition: boolean, description: string, detail = ''): boolean {
   checks += 1
   if (condition) {
     process.stdout.write(`ok   ${description}\n`)
@@ -42,7 +49,7 @@ function check(condition, description, detail = '') {
   return false
 }
 
-function attachConsole(page, errors) {
+function attachConsole(page: Page, errors: string[]): void {
   page.on('console', message => {
     if (message.type() === 'error') errors.push(`console: ${message.text()}`)
   })
@@ -50,10 +57,9 @@ function attachConsole(page, errors) {
 }
 
 /** The result cells, as a person reads them off the table. */
-async function readResults(page) {
+async function readResults(page: Page): Promise<ResultRow[]> {
   return page.$$eval('td.jsperf-test-result', cells =>
     cells.map(cell => ({
-      text: cell.textContent ?? '',
       hz: cell.querySelector('.jsperf-hz')?.textContent ?? '',
       fastest: cell.classList.contains('jsperf-fastest'),
       error: cell.classList.contains('jsperf-error')
@@ -61,7 +67,7 @@ async function readResults(page) {
   )
 }
 
-async function runQuickAndWait(page, expectedRows) {
+async function runQuickAndWait(page: Page, expectedRows: number): Promise<ResultRow[]> {
   await page.getByRole('button', { name: 'Quick run', exact: true }).click()
   await page.waitForFunction(
     rows => {
@@ -75,24 +81,29 @@ async function runQuickAndWait(page, expectedRows) {
   return readResults(page)
 }
 
-function packageExample(work) {
-  const result = spawnSync(process.execPath, [PACK, 'build', EXAMPLE, '-o', 'packaged.html'], {
-    cwd: work,
-    encoding: 'utf-8'
-  })
-  if (result.status !== 0) {
-    throw new Error(`jsperf-pack build failed: ${result.stderr}`)
-  }
-  return join(work, 'packaged.html')
+/** Every reported ops/sec is a formatted number, e.g. "12,345,678" or "9.87". */
+function reportedOpsPerSecond(rows: ResultRow[]): boolean {
+  return rows.every(row => /^[0-9][0-9,.]*$/.test(row.hz.trim()))
 }
 
-async function testKiosk(browser, work) {
-  const packaged = packageExample(work)
+function hzList(rows: ResultRow[]): string {
+  return JSON.stringify(rows.map(row => row.hz))
+}
+
+function pack(args: string[], cwd: string): void {
+  const result = spawnSync(process.execPath, [PACK, ...args], { cwd, encoding: 'utf-8' })
+  if (result.status !== 0) {
+    throw new Error(`jsperf-pack ${args.join(' ')} failed: ${result.stderr}`)
+  }
+}
+
+async function testKiosk(browser: Browser, work: string): Promise<void> {
+  pack(['build', EXAMPLE, '-o', 'packaged.html'], work)
   const page = await browser.newPage()
-  const errors = []
+  const errors: string[] = []
   attachConsole(page, errors)
 
-  await page.goto(pathToFileURL(packaged).href)
+  await page.goto(pathToFileURL(join(work, 'packaged.html')).href)
 
   check(
     (await page.locator('h1').textContent()) === 'Array iteration: forEach vs for-of vs indexed for',
@@ -112,19 +123,11 @@ async function testKiosk(browser, work) {
     'kiosk: no test errored',
     JSON.stringify(results)
   )
-  check(
-    results.every(row => /^[0-9][0-9,.]*$/.test(row.hz.trim())),
-    'kiosk: every test reported ops/sec',
-    JSON.stringify(results.map(row => row.hz))
-  )
+  check(reportedOpsPerSecond(results), 'kiosk: every test reported ops/sec', hzList(results))
   check(results.filter(row => row.fastest).length === 1, 'kiosk: exactly one test is marked fastest')
 
-  // The results export is how a run gets reported back to whoever asked for it.
-  const markdown = await page.evaluate(async () => {
-    const table = document.querySelector('table.jsperf-results')
-    return table ? table.textContent : ''
-  })
-  check((markdown ?? '').includes('Testing in'), 'kiosk: the table names the browser under test')
+  const caption = await page.locator('table.jsperf-results caption').textContent()
+  check((caption ?? '').includes('Testing in'), 'kiosk: the table names the browser under test')
 
   // Reporting a run back to whoever asked for it is part of the workflow.
   for (const name of ['Copy results', 'Copy JSON', 'Download JSON']) {
@@ -135,11 +138,11 @@ async function testKiosk(browser, work) {
   await page.close()
 }
 
-async function testKioskFragment(browser) {
+async function testKioskFragment(browser: Browser): Promise<void> {
   // The template with no case baked in: explains itself, and still accepts a
   // case from the URL fragment (the app's "Copy share link" output).
   const empty = await browser.newPage()
-  const errors = []
+  const errors: string[] = []
   attachConsole(empty, errors)
 
   await empty.goto(pathToFileURL(KIOSK).href)
@@ -169,6 +172,7 @@ async function testKioskFragment(browser) {
       }
     ]
   }
+
   // A fresh page, because a goto that only changes the fragment is a
   // same-document navigation and would not re-run the page's script.
   const fragment = Buffer.from(JSON.stringify(testCase), 'utf-8').toString('base64url')
@@ -178,29 +182,24 @@ async function testKioskFragment(browser) {
 
   check((await page.locator('h1').textContent()) === 'fragment case', 'kiosk template: a fragment case is loaded')
   const results = await runQuickAndWait(page, 2)
-  check(
-    results.every(row => /^[0-9][0-9,.]*$/.test(row.hz.trim())),
-    'kiosk template: a fragment case runs',
-    JSON.stringify(results.map(row => row.hz))
-  )
+  check(reportedOpsPerSecond(results), 'kiosk template: a fragment case runs', hzList(results))
   check(errors.length === 0, 'kiosk template: no console errors', errors.join('\n     '))
   await page.close()
 }
 
-async function testApp(browser) {
+async function testApp(browser: Browser): Promise<void> {
   const page = await browser.newPage()
-  const errors = []
+  const errors: string[] = []
   attachConsole(page, errors)
 
-  const url = pathToFileURL(APP).href
-  await page.goto(url)
+  await page.goto(pathToFileURL(APP).href)
 
   check((await page.locator('[data-jsperf-editor]').count()) === 1, 'app: the editor is present')
 
-  await page.fill('[data-jsperf-field="title"]', 'smoke: string building')
   const joinCode = 'const out = parts.join("")\nif (out.length !== 4) throw new Error("bad")'
   const concatCode = 'let out = ""\nfor (const part of parts) { out += part }\nif (out.length !== 4) throw new Error("bad")'
 
+  await page.fill('[data-jsperf-field="title"]', 'smoke: string building')
   await page.fill('[data-jsperf-field="setup"]', 'const parts = ["a", "b", "c", "d"]')
   await page.fill('[data-jsperf-field="test-title-0"]', 'join')
   await page.fill('[data-jsperf-field="test-code-0"]', joinCode)
@@ -208,11 +207,7 @@ async function testApp(browser) {
   await page.fill('[data-jsperf-field="test-code-1"]', concatCode)
 
   const results = await runQuickAndWait(page, 2)
-  check(
-    results.every(row => /^[0-9][0-9,.]*$/.test(row.hz.trim())),
-    'app: both edited tests reported ops/sec',
-    JSON.stringify(results.map(row => row.hz))
-  )
+  check(reportedOpsPerSecond(results), 'app: both edited tests reported ops/sec', hzList(results))
 
   const storageAvailable = await page.evaluate(() => {
     try {
@@ -231,64 +226,45 @@ async function testApp(browser) {
     (await page.inputValue('[data-jsperf-field="title"]')) === 'smoke: string building',
     'app: the edited case survived a reload'
   )
-  check(
-    (await page.inputValue('[data-jsperf-field="test-code-0"]')) === joinCode,
-    'app: the edited test code survived a reload'
-  )
-  check(
-    (await page.locator('table.jsperf-library tbody tr').count()) >= 1,
-    'app: the saved case is listed in the library'
-  )
+  check((await page.inputValue('[data-jsperf-field="test-code-0"]')) === joinCode, 'app: the edited test code survived a reload')
+  check((await page.locator('table.jsperf-library tbody tr').count()) >= 1, 'app: the saved case is listed in the library')
 
   const stored = await page.evaluate(() => window.localStorage.getItem('jsperf.app:standalone:cases:v1'))
-  check(
-    (stored ?? '').includes('smoke: string building'),
-    'app: the case is stored under the documented localStorage key'
-  )
+  check((stored ?? '').includes('smoke: string building'), 'app: the case is stored under the documented localStorage key')
 
   // A second run after the reload proves the reloaded case is runnable, not just
   // displayed.
   const rerun = await runQuickAndWait(page, 2)
-  check(
-    rerun.every(row => /^[0-9][0-9,.]*$/.test(row.hz.trim())),
-    'app: the reloaded case runs',
-    JSON.stringify(rerun.map(row => row.hz))
-  )
+  check(reportedOpsPerSecond(rerun), 'app: the reloaded case runs', hzList(rerun))
 
   // The no-CLI handoff: the app builds a link that carries the whole case in the
   // fragment, and the kiosk template opens it. A file:// page's origin is the
   // string "null", so this also guards against building the link from it.
   await page.getByRole('button', { name: 'Copy share link' }).click()
   const shareLink = await page.inputValue('[data-jsperf-field="share-link"]')
-  check(shareLink.startsWith('file:///') && shareLink.includes('#case='), 'app: the share link is a usable URL', shareLink.slice(0, 60))
+  check(
+    shareLink.startsWith('file:///') && shareLink.includes('#case='),
+    'app: the share link is a usable URL',
+    shareLink.slice(0, 60)
+  )
 
   check(errors.length === 0, 'app: no console errors or page errors', errors.join('\n     '))
   await page.close()
 
-  const fragment = shareLink.slice(shareLink.indexOf('#'))
   const shared = await browser.newPage()
-  const sharedErrors = []
+  const sharedErrors: string[] = []
   attachConsole(shared, sharedErrors)
-  await shared.goto(`${pathToFileURL(KIOSK).href}${fragment}`)
+  await shared.goto(`${pathToFileURL(KIOSK).href}${shareLink.slice(shareLink.indexOf('#'))}`)
   check((await shared.locator('h1').textContent()) === 'smoke: string building', 'kiosk: the app share link opens in the kiosk')
   const sharedResults = await runQuickAndWait(shared, 2)
-  check(
-    sharedResults.every(row => /^[0-9][0-9,.]*$/.test(row.hz.trim())),
-    'kiosk: the shared case runs',
-    JSON.stringify(sharedResults.map(row => row.hz))
-  )
+  check(reportedOpsPerSecond(sharedResults), 'kiosk: the shared case runs', hzList(sharedResults))
   check(sharedErrors.length === 0, 'kiosk: no console errors for the shared case', sharedErrors.join('\n     '))
   await shared.close()
 }
 
-async function testSandboxIsolation(browser, work) {
+async function testSandboxIsolation(browser: Browser, work: string): Promise<void> {
   // The sandbox must not be able to touch the host page: allow-scripts without
   // allow-same-origin. A test body that tries is the check.
-  const page = await browser.newPage()
-  const errors = []
-  page.on('pageerror', error => errors.push(error.message))
-
-  const hostile = join(work, 'hostile-case.json')
   const testCase = {
     title: 'isolation',
     tests: [
@@ -304,14 +280,11 @@ async function testSandboxIsolation(browser, work) {
       }
     ]
   }
-  const { writeFileSync } = await import('node:fs')
-  writeFileSync(hostile, JSON.stringify(testCase))
-  const result = spawnSync(process.execPath, [PACK, 'build', hostile, '-o', 'isolation.html'], {
-    cwd: work,
-    encoding: 'utf-8'
-  })
-  if (result.status !== 0) throw new Error(`pack build failed: ${result.stderr}`)
+  const casePath = join(work, 'hostile-case.json')
+  writeFileSync(casePath, JSON.stringify(testCase))
+  pack(['build', casePath, '-o', 'isolation.html'], work)
 
+  const page = await browser.newPage()
   await page.goto(pathToFileURL(join(work, 'isolation.html')).href)
   const titleBefore = await page.title()
   await runQuickAndWait(page, 2)
@@ -319,14 +292,14 @@ async function testSandboxIsolation(browser, work) {
   await page.close()
 }
 
-async function main() {
+async function main(): Promise<void> {
   for (const [label, path] of [
     ['app build', APP],
     ['kiosk build', KIOSK],
     ['pack CLI', PACK]
   ]) {
     if (!existsSync(path)) {
-      process.stderr.write(`browser-smoke: ${label} missing at ${path}; run scripts/build.mjs first\n`)
+      process.stderr.write(`browser-smoke: ${label} missing at ${path}; run scripts/build.ts first\n`)
       process.exitCode = 1
       return
     }
@@ -339,7 +312,7 @@ async function main() {
     process.stderr.write(
       `browser-smoke: playwright is not installed (${
         error instanceof Error ? error.message : String(error)
-      }).\nRun "npm install" in standalone/ and "npx playwright install chromium".\n`
+      }).\nRun "npm ci" in standalone/ and "npx playwright install chromium".\n`
     )
     process.exitCode = 1
     return

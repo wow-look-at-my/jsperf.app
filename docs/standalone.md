@@ -112,7 +112,7 @@ the no-CLI route: the empty template plus a link is a working benchmark.
 
 ## The build pipeline
 
-`scripts/build.mjs` is four ts0 invocations with two codegen steps between them,
+`scripts/build.ts` is four ts0 invocations with two codegen steps between them,
 because two artifacts need another artifact as a string:
 
 1. `ts0.sandbox.json` &rarr; `build/sandbox-driver.js` (browser, iife).
@@ -130,17 +130,37 @@ source in the project on every build, which is why the order matters.
 `pack/` is a nested ts0 project (its own `ts0.json`) rather than another config in
 the parent: the CLI is a Node target with no DOM lib, and ts0 excludes nested
 projects from the parent's gate, so the browser sources and the CLI are each
-checked against the right globals. `pack/src/node-env.d.ts` declares the slice of
-Node's API the CLI uses, because `standalone/` has no `@types/node` - and it is
-additive, verified to coexist with a real `@types/node` if one is resolvable from
-an ancestor `node_modules`.
+checked against the right globals.
+
+### The harness is TypeScript too
+
+`scripts/build.ts`, `scripts/verify.ts` and `scripts/browser-smoke.ts` are
+TypeScript, run through Node's type stripping (`node
+--experimental-strip-types`). Stripping only erases annotations, so the gate is
+what makes the types load-bearing: they live in the parent project, whose
+type-check covers **every** `.ts` under `standalone/` on every build regardless of
+which entry is being built. `scripts/build.ts` runs that gate as its first ts0
+invocation, so a type error (or an explicit `any`) anywhere in the harness fails
+the build before a single artifact is written. Both halves of that are pinned by
+having been made to fail on purpose.
+
+`build.ts` cannot be checked before it starts - it is the thing that fetches the
+compiler - which is the one honest bootstrap hole, and it closes on the very next
+line of work it does.
+
+Two consequences of the parent project being a **browser** target are worth
+knowing: the harness type-checks with the DOM lib (which is what makes the
+Playwright `page.evaluate` callbacks - code that really does run in a browser -
+type-check properly, the same reason a normal Playwright tsconfig includes DOM),
+and `@types/node` is a dev dependency rather than a hand-written shim, so the
+Node APIs the harness and the CLI use have their real signatures.
 
 ts0 itself is fetched as the prebuilt platform-neutral `ts0.cjs` from buildhost and
 cached in `.cache/`; `TS0=/path/to/ts0` overrides it.
 
 ## Verification
 
-`scripts/verify.mjs` (no browser, no npm) asserts the claims:
+`scripts/verify.ts` (no browser) asserts the claims:
 
 - Every artifact exists and is a complete bundle.
 - Neither HTML file references any local file (no `src`/`href` that is not an
@@ -157,7 +177,7 @@ cached in `.cache/`; `TS0=/path/to/ts0` overrides it.
   a name it cannot parse would be skipped silently and publish nothing while
   staying green.
 
-`scripts/browser-smoke.mjs` runs both builds in real chromium from a real `file://`
+`scripts/browser-smoke.ts` runs both builds in real chromium from a real `file://`
 URL, which is the only place the interesting claims can be proven: a packaged kiosk
 page runs its four tests and reports ops/sec with exactly one fastest; the empty
 template explains itself and still runs a fragment case; the app is edited through

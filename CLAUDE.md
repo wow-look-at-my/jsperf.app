@@ -25,10 +25,10 @@ jsperf.com mirror. Two things live here:
   it. See `docs/standalone.md`.
 - Benchmarks always run in a sandboxed iframe (`allow-scripts`, no
   `allow-same-origin`), never in the page that starts them.
-- The kiosk build must contain no editor and no storage access. `standalone/scripts/verify.mjs`
+- The kiosk build must contain no editor and no storage access. `standalone/scripts/verify.ts`
   enforces this; do not weaken those checks.
 - `standalone/src/generated/` and `standalone/pack/src/generated/` are generated
-  build inputs: gitignored, rebuilt by `standalone/scripts/build.mjs`.
+  build inputs: gitignored, rebuilt by `standalone/scripts/build.ts`.
 
 ## Working on the standalone builds
 
@@ -39,9 +39,12 @@ npm run verify            # artifact assertions (no browser needed)
 npm run smoke             # both builds in real chromium, from file://
 ```
 
-The standalone sources are dependency-free TypeScript (no React, no Tailwind, no
-syntax highlighter); ts0's type-check gate also bans explicit `any`, with no
-escape hatch.
+Everything under `standalone/` is TypeScript, including the build/verify/smoke
+harness in `scripts/` (run through Node's type stripping; the first ts0 build in
+`scripts/build.ts` type-checks the harness along with `src/`, so a type error there
+fails the build before anything is written). The browser sources are
+dependency-free &mdash; no React, no Tailwind, no syntax highlighter &mdash; and
+ts0's gate also bans explicit `any`, with no escape hatch.
 
 ## Documentation
 

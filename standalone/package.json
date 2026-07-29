@@ -8,12 +8,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "node scripts/build.mjs",
-    "verify": "node scripts/verify.mjs",
-    "smoke": "node scripts/browser-smoke.mjs",
+    "build": "node --experimental-strip-types scripts/build.ts",
+    "verify": "node --experimental-strip-types scripts/verify.ts",
+    "smoke": "node --experimental-strip-types scripts/browser-smoke.ts",
     "check": "npm run build && npm run verify && npm run smoke"
   },
   "devDependencies": {
+    "@types/node": "22.15.0",
     "playwright": "1.56.0"
   },
   "dependencies": {
