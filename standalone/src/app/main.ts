@@ -31,6 +31,20 @@ const storageNoteEl = mustFind('jsperf-storage-note')
 
 const panel = new BenchPanel(runnerEl, SANDBOX_BUNDLE, () => currentCase)
 
+const shareLinkInput = el('input')
+shareLinkInput.type = 'text'
+shareLinkInput.readOnly = true
+shareLinkInput.dataset.jsperfField = 'share-link'
+shareLinkInput.addEventListener('focus', () => shareLinkInput.select())
+
+const shareLinkRow = el('div', { class: 'jsperf-field jsperf-share' }, [
+  el('label', { text: 'Share link' }, [
+    el('span', { class: 'jsperf-hint', text: 'the whole case, in the URL fragment' })
+  ]),
+  el('div', { class: 'jsperf-control' }, [shareLinkInput])
+])
+shareLinkRow.hidden = true
+
 function mustFind(id: string): HTMLElement {
   const node = document.getElementById(id)
   if (!node) throw new Error(`missing element #${id}`)
@@ -118,12 +132,21 @@ function exportJson(): void {
 }
 
 async function copyShareLink(): Promise<void> {
-  const base = `${window.location.origin}${window.location.pathname}`
+  // href minus the fragment, NOT origin + pathname: a file:// page's origin is
+  // the string "null", and these builds are usually opened from a file.
+  const base = window.location.href.split('#')[0]
   const link = `${base}${encodeCaseToFragment(runnableCase(currentCase))}`
+
+  // Always shown, not only copied: the clipboard is not reliably available from
+  // a file:// page, and a link the user can select is never a dead end.
+  shareLinkRow.hidden = false
+  shareLinkInput.value = link
+  shareLinkInput.select()
+
   const ok = await copyText(link)
   storageNoteEl.textContent = ok
     ? 'Share link copied (the whole test case travels in the URL fragment).'
-    : 'Could not reach the clipboard; use Export JSON instead.'
+    : 'Share link ready below; the clipboard is not available here.'
 }
 
 function field(label: string, hint: string, control: HTMLElement): HTMLElement {
@@ -302,7 +325,7 @@ function renderLibrary(): void {
 
 function renderEditor(): void {
   editorEl.textContent = ''
-  editorEl.append(el('h2', { text: 'Test case' }), renderToolbar())
+  editorEl.append(el('h2', { text: 'Test case' }), renderToolbar(), shareLinkRow)
 
   editorEl.append(
     field(

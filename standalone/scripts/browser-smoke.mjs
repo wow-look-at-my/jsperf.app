@@ -255,8 +255,30 @@ async function testApp(browser) {
     JSON.stringify(rerun.map(row => row.hz))
   )
 
+  // The no-CLI handoff: the app builds a link that carries the whole case in the
+  // fragment, and the kiosk template opens it. A file:// page's origin is the
+  // string "null", so this also guards against building the link from it.
+  await page.getByRole('button', { name: 'Copy share link' }).click()
+  const shareLink = await page.inputValue('[data-jsperf-field="share-link"]')
+  check(shareLink.startsWith('file:///') && shareLink.includes('#case='), 'app: the share link is a usable URL', shareLink.slice(0, 60))
+
   check(errors.length === 0, 'app: no console errors or page errors', errors.join('\n     '))
   await page.close()
+
+  const fragment = shareLink.slice(shareLink.indexOf('#'))
+  const shared = await browser.newPage()
+  const sharedErrors = []
+  attachConsole(shared, sharedErrors)
+  await shared.goto(`${pathToFileURL(KIOSK).href}${fragment}`)
+  check((await shared.locator('h1').textContent()) === 'smoke: string building', 'kiosk: the app share link opens in the kiosk')
+  const sharedResults = await runQuickAndWait(shared, 2)
+  check(
+    sharedResults.every(row => /^[0-9][0-9,.]*$/.test(row.hz.trim())),
+    'kiosk: the shared case runs',
+    JSON.stringify(sharedResults.map(row => row.hz))
+  )
+  check(sharedErrors.length === 0, 'kiosk: no console errors for the shared case', sharedErrors.join('\n     '))
+  await shared.close()
 }
 
 async function testSandboxIsolation(browser, work) {
