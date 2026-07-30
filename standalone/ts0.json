@@ -1,0 +1,10 @@
+{
+  "entry": "src/app/app.html",
+  "outfile": "dist/jsperf.html",
+  "target": "browser",
+  "format": "esm",
+  "strict": true,
+  "minify": false,
+  "sourcemap": false,
+  "embedAssets": false
+}

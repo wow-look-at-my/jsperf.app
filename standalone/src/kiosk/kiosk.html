@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>jsPerf benchmark</title>
+    <link rel="stylesheet" href="../shared/style.css" />
+    <link rel="stylesheet" href="kiosk.css" />
+  </head>
+  <body>
+    <div class="jsperf-page">
+      <header class="jsperf-header">
+        <h1 id="jsperf-title">Benchmark</h1>
+        <span class="jsperf-spacer"></span>
+        <span class="jsperf-muted">jsPerf kiosk</span>
+      </header>
+      <main id="jsperf-main"></main>
+      <footer class="jsperf-footer">
+        Self-contained benchmark page built with
+        <a href="https://jsperf.app">jsPerf.app</a> and
+        <a href="https://benchmarkjs.com">Benchmark.js</a>. Nothing here talks to
+        the network: the test runs entirely in this file.
+      </footer>
+    </div>
+    <!--
+      The packaged test case. `jsperf-pack build` replaces this placeholder with
+      the case JSON; an unpackaged template keeps `null` and reads the case from
+      the URL fragment instead.
+    -->
+    <script type="application/json" id="jsperf-case">null</script>
+    <script src="./main.ts"></script>
+  </body>
+</html>

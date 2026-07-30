@@ -1,0 +1,24 @@
+/* Kiosk-only styling. The kiosk shows one packaged benchmark and nothing else -
+   no editor, no saved cases, no navigation. */
+
+.jsperf-info {
+  margin: 0 0 1rem;
+  max-width: 70ch;
+}
+
+.jsperf-info p {
+  margin: 0 0 0.5rem;
+}
+
+.jsperf-empty {
+  border: 1px solid var(--jsp-border);
+  border-left: 4px solid var(--jsp-blue);
+  padding: 0.75rem 1rem;
+  background: var(--jsp-bg-alt);
+}
+
+.jsperf-empty code {
+  background: #fff;
+  padding: 0.1rem 0.25rem;
+  border: 1px solid var(--jsp-border);
+}
