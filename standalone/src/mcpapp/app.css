@@ -1,0 +1,336 @@
+/* The MCP App view: a compact measuring instrument that sits inside a
+   conversation. It is scanned and operated rather than read, so the information
+   design carries it - a bar answers "which is faster" before the number does,
+   and every figure is tabular so columns line up.
+
+   Palette extends the jsPerf identity (blue accent, green fastest) with
+   blue-biased neutrals, and is defined once as tokens so the host's light or
+   dark theme only re-points the tokens. */
+
+:root {
+  --jp-ground: #f7f9fc;
+  --jp-surface: #ffffff;
+  --jp-line: #dde5f0;
+  --jp-ink: #0c1726;
+  --jp-muted: #5b6b80;
+  --jp-accent: #2563eb;
+  --jp-accent-soft: #dbe6fe;
+  --jp-good: #0f7a52;
+  --jp-good-soft: #cdeddd;
+  --jp-bad: #b42318;
+  --jp-bad-soft: #fbdedb;
+  --jp-radius: 8px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --jp-ground: #0b1220;
+    --jp-surface: #131d2f;
+    --jp-line: #26344b;
+    --jp-ink: #e8eff9;
+    --jp-muted: #93a5bd;
+    --jp-accent: #74a5ff;
+    --jp-accent-soft: #1d2c47;
+    --jp-good: #5cd6a0;
+    --jp-good-soft: #123328;
+    --jp-bad: #ff8f84;
+    --jp-bad-soft: #3a1a17;
+    color-scheme: dark;
+  }
+}
+
+/* The host stamps its own theme, which must win over the OS preference in both
+   directions. */
+:root[data-theme="light"] {
+  --jp-ground: #f7f9fc;
+  --jp-surface: #ffffff;
+  --jp-line: #dde5f0;
+  --jp-ink: #0c1726;
+  --jp-muted: #5b6b80;
+  --jp-accent: #2563eb;
+  --jp-accent-soft: #dbe6fe;
+  --jp-good: #0f7a52;
+  --jp-good-soft: #cdeddd;
+  --jp-bad: #b42318;
+  --jp-bad-soft: #fbdedb;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --jp-ground: #0b1220;
+  --jp-surface: #131d2f;
+  --jp-line: #26344b;
+  --jp-ink: #e8eff9;
+  --jp-muted: #93a5bd;
+  --jp-accent: #74a5ff;
+  --jp-accent-soft: #1d2c47;
+  --jp-good: #5cd6a0;
+  --jp-good-soft: #123328;
+  --jp-bad: #ff8f84;
+  --jp-bad-soft: #3a1a17;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--jp-ground);
+  color: var(--jp-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.jp {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  max-width: 860px;
+}
+
+.jp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.jp-head h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.jp-sub,
+.jp-status,
+.jp-browser {
+  margin: 2px 0 0;
+  color: var(--jp-muted);
+  font-size: 12px;
+}
+
+.jp-status {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.jp-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.jp-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--jp-line);
+  background: var(--jp-surface);
+  color: var(--jp-ink);
+  cursor: pointer;
+}
+
+.jp-btn:hover:not(:disabled) {
+  border-color: var(--jp-accent);
+  color: var(--jp-accent);
+}
+
+.jp-btn-primary {
+  background: var(--jp-accent);
+  border-color: var(--jp-accent);
+  color: #fff;
+}
+
+.jp-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  color: #fff;
+}
+
+.jp-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.jp-btn:focus-visible,
+.jp-code summary:focus-visible {
+  outline: 2px solid var(--jp-accent);
+  outline-offset: 2px;
+}
+
+.jp-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.jp-row {
+  background: var(--jp-surface);
+  border: 1px solid var(--jp-line);
+  border-radius: var(--jp-radius);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: baseline;
+}
+
+.jp-row-name {
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.jp-row-figure {
+  text-align: right;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The number is the display type: it is what the whole widget exists to show. */
+.jp-hz {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.jp-unit,
+.jp-rme {
+  color: var(--jp-muted);
+  font-size: 11px;
+}
+
+.jp-track {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--jp-accent-soft);
+  overflow: hidden;
+}
+
+.jp-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--jp-accent);
+  transition: width 320ms ease-out;
+}
+
+.jp-row-fastest .jp-fill {
+  background: var(--jp-good);
+}
+
+.jp-row-fastest .jp-track {
+  background: var(--jp-good-soft);
+}
+
+.jp-row-error .jp-track {
+  background: var(--jp-bad-soft);
+}
+
+.jp-row-error .jp-fill {
+  background: var(--jp-bad);
+  width: 100%;
+}
+
+.jp-delta {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--jp-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.jp-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: var(--jp-good-soft);
+  color: var(--jp-good);
+}
+
+.jp-row-error .jp-chip {
+  background: var(--jp-bad-soft);
+  color: var(--jp-bad);
+}
+
+.jp-code {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+.jp-code summary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--jp-muted);
+}
+
+.jp-code pre {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  background: var(--jp-ground);
+  border: 1px solid var(--jp-line);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.jp-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--jp-line);
+  padding-top: 10px;
+}
+
+.jp-spacer {
+  flex: 1;
+}
+
+.jp-note {
+  background: var(--jp-surface);
+  border: 1px solid var(--jp-line);
+  border-left: 3px solid var(--jp-accent);
+  border-radius: var(--jp-radius);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.jp-note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+/* The runner iframe must be in the layout to run, but has nothing to show. */
+.jp-sandbox-host iframe {
+  width: 0;
+  height: 0;
+  border: 0;
+  position: absolute;
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jp-fill {
+    transition: none;
+  }
+}

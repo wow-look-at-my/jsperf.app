@@ -14,8 +14,10 @@
  * standalone/ is a browser-target ts0 project - they do run in a browser.
  */
 
-import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { spawn, spawnSync } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
+import { createServer } from 'node:http'
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -26,6 +28,18 @@ const APP = join(standaloneDir, 'dist', 'jsperf.html')
 const KIOSK = join(standaloneDir, 'dist', 'jsperf-kiosk.html')
 const PACK = join(standaloneDir, 'dist', 'jsperf-pack.mjs')
 const EXAMPLE = join(standaloneDir, 'examples', 'array-iteration')
+
+const MCP_APP = join(standaloneDir, 'dist', 'jsperf-mcp-app.html')
+const MCP_SERVER = join(standaloneDir, 'dist', 'jsperf-mcp-server.mjs')
+
+/**
+ * The CSP an MCP Apps host applies to a view, verbatim from the specification's
+ * default policy. Serving the view under anything weaker would make this test a
+ * lie: no `unsafe-eval` is the whole reason the runner is a separate origin.
+ */
+const HOST_CSP =
+  "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+  "img-src 'self' data:; media-src 'self' data:; object-src 'none'; connect-src 'none';"
 
 const RESULT_TIMEOUT_MS = 120_000
 
@@ -292,6 +306,114 @@ async function testSandboxIsolation(browser: Browser, work: string): Promise<voi
   await page.close()
 }
 
+/**
+ * The MCP App view, under the policy a real host imposes.
+ *
+ * This is the test that proves the architecture rather than the theory: the view
+ * is served with the host's deny-by-default CSP (so `new Function` is genuinely
+ * blocked in it), plus the `frame-src` the server's `_meta.ui.csp.frameDomains`
+ * would produce, and the benchmark still runs - in the cross-origin runner the
+ * MCP server serves.
+ */
+async function testMcpAppUnderHostCsp(browser: Browser): Promise<void> {
+  const runnerPort = 3401
+  const appPort = 3402
+  const runnerOrigin = `http://127.0.0.1:${runnerPort}`
+  const runnerUrl = `${runnerOrigin}/runner.html`
+
+  const server: ChildProcess = spawn(process.execPath, [MCP_SERVER], {
+    cwd: standaloneDir,
+    env: { ...process.env, PORT: String(runnerPort) },
+    stdio: ['ignore', 'ignore', 'ignore']
+  })
+
+  // The probe runs as page script on purpose: page.evaluate() goes through CDP,
+  // which is NOT subject to the page's CSP, so evaluating `new Function` that way
+  // would succeed and quietly turn this check into a lie.
+  const appHtml = `${readFileSync(MCP_APP, 'utf-8')}
+<script>
+  try { new Function('return 1')(); document.documentElement.dataset.evalWorks = 'yes' }
+  catch (error) { document.documentElement.dataset.evalWorks = 'no' }
+</script>`
+  const appServer = createServer((_req, res) => {
+    res.writeHead(200, {
+      'content-type': 'text/html',
+      'content-security-policy': `${HOST_CSP} frame-src ${runnerOrigin};`
+    })
+    res.end(appHtml)
+  })
+  await new Promise<void>(done => appServer.listen(appPort, () => done()))
+
+  const page = await browser.newPage()
+  const errors: string[] = []
+  attachConsole(page, errors)
+
+  try {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        if ((await fetch(`${runnerOrigin}/healthz`)).ok) break
+      } catch {
+        await page.waitForTimeout(250)
+      }
+    }
+
+    const testCase = {
+      title: 'in-conversation benchmark',
+      info: '',
+      initHTML: '',
+      setup: 'const words = ["alpha", "beta", "gamma", "delta"]',
+      teardown: '',
+      autorun: false,
+      tests: [
+        {
+          title: 'Array#join',
+          code: 'const out = words.join("")\nif (out.length !== 19) throw new Error("bad")',
+          async: false
+        },
+        {
+          title: '+= in a loop',
+          code: 'let out = ""\nfor (const word of words) out += word\nif (out.length !== 19) throw new Error("bad")',
+          async: false
+        }
+      ]
+    }
+    const fragment = Buffer.from(JSON.stringify(testCase), 'utf-8').toString('base64url')
+    await page.goto(`http://127.0.0.1:${appPort}/?runner=${encodeURIComponent(runnerUrl)}#case=${fragment}`)
+
+    // Prove the view really is under the host policy, not a relaxed copy.
+    const evalWorks = await page.evaluate(() => document.documentElement.dataset.evalWorks)
+    check(evalWorks === 'no', 'mcp view: the host CSP blocks eval in the view itself', `probe said ${String(evalWorks)}`)
+
+    check((await page.locator('h1').textContent()) === 'in-conversation benchmark', 'mcp view: the case renders')
+    check((await page.locator('.jp-row').count()) === 2, 'mcp view: one row per variant')
+
+    await page.getByRole('button', { name: 'Run', exact: true }).click()
+    await page.waitForFunction(
+      () => document.querySelectorAll('.jp-hz').length === 2,
+      undefined,
+      { timeout: RESULT_TIMEOUT_MS }
+    )
+
+    const figures = await page.$$eval('.jp-hz', nodes => nodes.map(node => node.textContent ?? ''))
+    check(
+      figures.every(text => /^[0-9][0-9,.]*$/.test(text.trim())),
+      'mcp view: the cross-origin runner returned ops/sec',
+      JSON.stringify(figures)
+    )
+    check((await page.locator('.jp-row-fastest').count()) === 1, 'mcp view: one variant is marked fastest')
+    check(!(await page.getByRole('button', { name: 'Copy' }).isDisabled()), 'mcp view: results can be reported back')
+
+    // CSP violations surface as console errors; a frame-src mistake would show
+    // up here rather than as a wrong number.
+    const cspErrors = errors.filter(text => /Content Security Policy|Refused to/i.test(text))
+    check(cspErrors.length === 0, 'mcp view: no CSP violations while running', cspErrors.join('\n     '))
+  } finally {
+    await page.close()
+    appServer.close()
+    server.kill()
+  }
+}
+
 async function main(): Promise<void> {
   for (const [label, path] of [
     ['app build', APP],
@@ -329,6 +451,9 @@ async function main(): Promise<void> {
     await testKioskFragment(browser)
     await testApp(browser)
     await testSandboxIsolation(browser, work)
+    if (existsSync(MCP_APP) && existsSync(MCP_SERVER)) {
+      await testMcpAppUnderHostCsp(browser)
+    }
   } finally {
     await browser.close()
   }

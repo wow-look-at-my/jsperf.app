@@ -29,7 +29,7 @@ const editorEl = mustFind('jsperf-editor')
 const runnerEl = mustFind('jsperf-runner')
 const storageNoteEl = mustFind('jsperf-storage-note')
 
-const panel = new BenchPanel(runnerEl, SANDBOX_BUNDLE, () => currentCase)
+const panel = new BenchPanel(runnerEl, { kind: 'inline', js: SANDBOX_BUNDLE }, () => currentCase)
 
 const shareLinkInput = el('input')
 shareLinkInput.type = 'text'
