@@ -22,8 +22,13 @@ import { browserLabel } from '../shared/results.ts'
 import { BenchRunner } from '../shared/runner.ts'
 import type { TestResult } from '../shared/protocol.ts'
 
-/** Where the benchmark actually runs. The server overrides this per deployment. */
-const DEFAULT_RUNNER_URL = 'https://sites.pazer.build/jsperf.app/runner.html'
+/**
+ * Only used when there is no host: opening the view directly with `#case=` for
+ * development. In a conversation the server always sends its own runner URL, and
+ * it must - the host's `frame-src` allows exactly the origin the server declared
+ * in `_meta.ui.csp.frameDomains`, so no other runner could load anyway.
+ */
+const DEV_RUNNER_URL = 'https://sites.pazer.build/jsperf.app/runner.html'
 
 const FULL_RUN_MAX_TIME = 5
 const QUICK_RUN_MAX_TIME = 0.5
@@ -47,7 +52,7 @@ const copyBtn = must<HTMLButtonElement>('jp-copy')
 const sandboxHost = must('jp-sandbox')
 
 let testCase: TestCase | undefined
-let runnerUrl = DEFAULT_RUNNER_URL
+let runnerUrl = DEV_RUNNER_URL
 let lastResults: TestResult[] = []
 let rowNodes: { fill: HTMLElement; figure: HTMLElement; delta: HTMLElement; row: HTMLElement }[] = []
 
