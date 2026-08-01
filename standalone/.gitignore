@@ -7,4 +7,5 @@ build/
 node_modules/
 src/generated/
 pack/src/generated/
+mcp/src/generated/
 .ts0-tsconfig*.json

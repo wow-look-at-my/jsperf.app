@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>jsPerf</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <main class="jp" id="jp-root">
+      <header class="jp-head">
+        <div>
+          <h1 id="jp-title">Benchmark</h1>
+          <p class="jp-sub" id="jp-sub">Runs in your browser, on your machine.</p>
+        </div>
+        <div class="jp-actions">
+          <button type="button" id="jp-run" class="jp-btn jp-btn-primary">Run</button>
+          <button type="button" id="jp-full" class="jp-btn">Full run</button>
+          <button type="button" id="jp-stop" class="jp-btn" hidden>Stop</button>
+        </div>
+      </header>
+
+      <p class="jp-status" id="jp-status">Waiting for a benchmark&hellip;</p>
+
+      <ol class="jp-rows" id="jp-rows"></ol>
+
+      <footer class="jp-foot">
+        <span class="jp-browser" id="jp-browser"></span>
+        <span class="jp-spacer"></span>
+        <button type="button" id="jp-send" class="jp-btn" disabled>Discuss results</button>
+        <button type="button" id="jp-copy" class="jp-btn" disabled>Copy</button>
+      </footer>
+
+      <div class="jp-sandbox-host" id="jp-sandbox"></div>
+    </main>
+    <script src="./main.ts"></script>
+  </body>
+</html>

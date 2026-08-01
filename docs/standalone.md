@@ -10,6 +10,8 @@ the way it is. User-facing documentation is [`standalone/README.md`](../standalo
 | `dist/jsperf.html` | The whole app in one file: editor, saved-case library, runner. Persistence is `localStorage` where the Next.js app uses MongoDB. |
 | `dist/jsperf-kiosk.html` | Runner only. Also the template `jsperf-pack` bakes a case into. |
 | `dist/jsperf-pack.mjs` | The packaging CLI, with the kiosk template embedded. Node 22+, no dependencies, works offline. |
+| `dist/runner.html` | The sandbox document as a page, for embedders that cannot use srcdoc. See [mcp-app.md](mcp-app.md). |
+| `dist/jsperf-mcp-app.html` + `dist/jsperf-mcp-server.mjs` | The MCP App: the view a Claude conversation renders inline, and the stateless server that serves it. |
 
 Plus two derived layouts: `dist-publish/` (buildhost's `<binary>_<os>_<arch>`
 naming, consumed by the publish job) and `dist-site/` (`index.html` = the app, for
@@ -112,16 +114,20 @@ the no-CLI route: the empty template plus a link is a working benchmark.
 
 ## The build pipeline
 
-`scripts/build.ts` is four ts0 invocations with two codegen steps between them,
-because two artifacts need another artifact as a string:
+`scripts/build.ts` is six ts0 invocations with codegen steps between them,
+because several artifacts need another artifact as a string:
 
 1. `ts0.sandbox.json` &rarr; `build/sandbox-driver.js` (browser, iife).
 2. lodash + `app/lib/benchmark.mjs` + the driver &rarr;
-   `src/generated/sandbox-bundle.ts`.
+   `src/generated/sandbox-bundle.ts`, and the same document written out as
+   `dist/runner.html` (see `docs/mcp-app.md` for who loads that).
 3. `ts0.kiosk.json` &rarr; `dist/jsperf-kiosk.html`.
 4. That HTML &rarr; `pack/src/generated/kiosk-template.ts`.
 5. `ts0.json` &rarr; `dist/jsperf.html`.
 6. `pack/ts0.json` &rarr; `dist/jsperf-pack.mjs`.
+7. `ts0.mcpapp.json` &rarr; `dist/jsperf-mcp-app.html`, then that plus the runner
+   &rarr; `mcp/src/generated/assets.ts`.
+8. `mcp/ts0.json` &rarr; `dist/jsperf-mcp-server.mjs`.
 
 Both generated modules are gitignored build inputs, written as stubs first so a
 fresh clone type-checks before they exist. ts0's type-check gate covers every

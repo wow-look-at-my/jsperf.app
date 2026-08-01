@@ -32,6 +32,12 @@ jobs:
         working-directory: standalone
         run: npm run verify
 
+      # Connects a real MCP client to the built server: the tool/resource wiring
+      # an MCP Apps host depends on is not visible in the artifacts themselves.
+      - name: Check the MCP App server
+        working-directory: standalone
+        run: npm run mcp-check
+
       - name: Install chromium
         working-directory: standalone
         run: npx playwright install --with-deps chromium
@@ -66,6 +72,9 @@ jobs:
             standalone/dist/jsperf.html
             standalone/dist/jsperf-kiosk.html
             standalone/dist/jsperf-pack.mjs
+            standalone/dist/jsperf-mcp-app.html
+            standalone/dist/jsperf-mcp-server.mjs
+            standalone/dist/runner.html
           if-no-files-found: error
 
   # Publish the three artifacts to buildhost. Every branch publishes: buildhost

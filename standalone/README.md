@@ -67,6 +67,27 @@ A single `case.json` holding everything works too &mdash; that is what the app
 build's **Export JSON** button writes, so the browser and the CLI are two ways
 into the same format.
 
+## In a Claude conversation
+
+`mcp/` serves the same benchmark as an **MCP App** (an "interactive connector"),
+so Claude can drop a live runner into a conversation: it proposes the variants,
+you press Run, and your browser's numbers go back into the chat.
+
+```sh
+npm run mcp-serve                                  # http://localhost:3199/mcp
+npx cloudflared tunnel --url http://localhost:3199 # a public URL for Claude
+```
+
+Add the tunnel's `https://.../mcp` URL under **Customize -> Connectors -> Add
+custom connector** (Pro/Max/Team/Enterprise; no review needed for your own use),
+then ask something like *"which is faster in my browser, `Array#join` or `+=` in
+a loop?"*.
+
+The view cannot run the benchmark itself - MCP Apps hosts forbid `eval`, which
+Benchmark.js needs - so the server also serves a cross-origin runner page and
+declares it in `_meta.ui.csp.frameDomains`. The whole story, including the
+measurements behind that claim, is in [`docs/mcp-app.md`](../docs/mcp-app.md).
+
 ## Build from source
 
 ```sh
@@ -74,7 +95,8 @@ cd standalone
 npm ci                # lodash (Benchmark.js needs it), @types/node, playwright
 npm run build         # -> dist/
 npm run verify        # assert what the artifacts claim to be
-npm run smoke         # run both builds in real chromium, from file://
+npm run mcp-check     # the MCP server, over the wire, with a real MCP client
+npm run smoke         # every build in real chromium, from file:// and under the MCP host CSP
 ```
 
 `npm run build` downloads the prebuilt [ts0](https://github.com/wow-look-at-my/ts0)

@@ -10,7 +10,7 @@ import { caseProblems, runnableCase } from './case.ts'
 import { button, copyText, download, el } from './dom.ts'
 import { ResultsTable } from './results.ts'
 import { BenchRunner } from './runner.ts'
-import type { RunnerState } from './runner.ts'
+import type { RunnerState, SandboxSource } from './runner.ts'
 
 /** Benchmark.js maxTime per test, in seconds. */
 const FULL_RUN_MAX_TIME = 5
@@ -28,7 +28,7 @@ export class BenchPanel {
   private readonly downloadButton: HTMLButtonElement
   private readonly getCase: () => TestCase
 
-  constructor(root: HTMLElement, sandboxJs: string, getCase: () => TestCase) {
+  constructor(root: HTMLElement, sandbox: SandboxSource, getCase: () => TestCase) {
     this.getCase = getCase
     this.statusEl = el('p', { class: 'jsperf-status', text: 'Ready to run.' })
     this.runButton = button('Run', () => this.runFull())
@@ -56,7 +56,7 @@ export class BenchPanel {
     root.append(controls, sandboxHost, tableHost, exportRow)
 
     this.table = new ResultsTable(tableHost)
-    this.runner = new BenchRunner(sandboxHost, sandboxJs, {
+    this.runner = new BenchRunner(sandboxHost, sandbox, {
       onStateChange: state => this.applyState(state),
       onStatus: text => {
         this.statusEl.textContent = text

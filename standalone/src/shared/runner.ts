@@ -1,15 +1,24 @@
 /**
- * Host-side benchmark controller, shared by the app and the kiosk.
+ * Host-side benchmark controller, shared by every build.
  *
- * Every run gets a brand-new sandboxed iframe whose document is the embedded
- * sandbox bundle (Benchmark.js + the driver) delivered via srcdoc. That is what
- * keeps the single-file build honest: no separate sandbox.html to fetch, and no
- * state carried from one run into the next.
+ * Every run gets a brand-new sandboxed iframe, from one of two sources:
+ *
+ * - `inline`: the embedded sandbox bundle delivered via srcdoc. That is what
+ *   keeps the single-file builds honest - no separate sandbox.html to fetch.
+ * - `url`: a runner page on another origin. srcdoc inherits the embedder's
+ *   Content-Security-Policy, so a host that forbids `unsafe-eval` (MCP Apps
+ *   hosts do) makes the inline form unable to compile a test body at all. A
+ *   cross-origin document brings its own CSP, which is the only way to run a
+ *   benchmark inside such a host. See docs/mcp-app.md.
+ *
+ * Either way the iframe is discarded after the run, so no state is carried from
+ * one run into the next.
  */
 
 import type { TestCase } from './case.ts'
 import type { RunOptions, SandboxCycleMessage, TestResult } from './protocol.ts'
 import { isRecord, messageName } from './protocol.ts'
+import { sandboxDocument } from './sandbox-document.ts'
 
 export type RunnerState = 'ready' | 'running' | 'complete'
 
@@ -21,37 +30,20 @@ export interface RunnerHandlers {
   onFailure(error: string): void
 }
 
-/**
- * `</script` inside the bundle would end the sandbox document's script element.
- * Escaping the slash is inert in JavaScript string and regexp literals - the
- * only places the sequence can legally appear - and the build verifier asserts
- * the bundle never contains it, so this is belt and braces.
- */
-function escapeForScriptElement(js: string): string {
-  return js.replace(/<\/script/gi, '<\\/script')
-}
-
-function sandboxDocument(sandboxJs: string): string {
-  return [
-    '<!doctype html>',
-    '<html><head><meta charset="utf-8"><title>jsperf sandbox</title></head>',
-    '<body><div id="jsperf-init-html"></div>',
-    `<script>${escapeForScriptElement(sandboxJs)}</script>`,
-    '</body></html>'
-  ].join('')
-}
+/** Where the sandbox document comes from. */
+export type SandboxSource = { kind: 'inline'; js: string } | { kind: 'url'; url: string }
 
 export class BenchRunner {
   private readonly container: HTMLElement
-  private readonly sandboxJs: string
+  private readonly source: SandboxSource
   private readonly handlers: RunnerHandlers
   private iframe: HTMLIFrameElement | undefined
   private pending: { testCase: TestCase; options: RunOptions } | undefined
   private state: RunnerState = 'ready'
 
-  constructor(container: HTMLElement, sandboxJs: string, handlers: RunnerHandlers) {
+  constructor(container: HTMLElement, source: SandboxSource, handlers: RunnerHandlers) {
     this.container = container
-    this.sandboxJs = sandboxJs
+    this.source = source
     this.handlers = handlers
     window.addEventListener('message', this.onMessage)
   }
@@ -71,7 +63,11 @@ export class BenchRunner {
     iframe.setAttribute('sandbox', 'allow-scripts')
     iframe.setAttribute('title', 'benchmark sandbox')
     iframe.className = 'jsperf-sandbox'
-    iframe.srcdoc = sandboxDocument(this.sandboxJs)
+    if (this.source.kind === 'inline') {
+      iframe.srcdoc = sandboxDocument(this.source.js)
+    } else {
+      iframe.src = this.source.url
+    }
     this.iframe = iframe
     this.pending = { testCase, options }
     this.container.appendChild(iframe)
@@ -97,6 +93,14 @@ export class BenchRunner {
     this.pending = undefined
   }
 
+  /**
+   * Always '*', even for a runner on a known origin: `sandbox="allow-scripts"`
+   * without `allow-same-origin` gives the frame an OPAQUE origin, which reports
+   * as "null" and matches no targetOrigin at all - naming the URL's origin makes
+   * every postMessage silently fail. The sandbox attribute is the boundary here,
+   * not the targetOrigin, and the message only carries the test case the user is
+   * about to run anyway.
+   */
   private post(message: object): void {
     const target = this.iframe?.contentWindow
     if (target) {

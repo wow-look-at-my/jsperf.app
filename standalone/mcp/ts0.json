@@ -1,0 +1,9 @@
+{
+  "entry": "server.ts",
+  "outfile": "../dist/jsperf-mcp-server.mjs",
+  "target": "node",
+  "format": "esm",
+  "strict": true,
+  "minify": false,
+  "sourcemap": false
+}

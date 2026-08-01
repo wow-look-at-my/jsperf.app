@@ -34,6 +34,7 @@ import { spawnSync } from 'node:child_process'
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sandboxDocument } from '../src/shared/sandbox-document.ts'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const standaloneDir = resolve(scriptDir, '..')
@@ -115,7 +116,8 @@ function assertNoScriptTerminator(js: string, what: string): void {
 
 const generated = {
   sandbox: join(standaloneDir, 'src', 'generated', 'sandbox-bundle.ts'),
-  kiosk: join(standaloneDir, 'pack', 'src', 'generated', 'kiosk-template.ts')
+  kiosk: join(standaloneDir, 'pack', 'src', 'generated', 'kiosk-template.ts'),
+  mcpAssets: join(standaloneDir, 'mcp', 'src', 'generated', 'assets.ts')
 }
 
 /**
@@ -131,6 +133,17 @@ function writeStubs(): void {
     writeGenerated(
       generated.kiosk,
       'export const KIOSK_TEMPLATE: string = ""\nexport const KIOSK_TEMPLATE_VERSION: string = "stub"\n'
+    )
+  }
+  if (!existsSync(generated.mcpAssets)) {
+    writeGenerated(
+      generated.mcpAssets,
+      [
+        'export const APP_HTML: string = ""',
+        'export const RUNNER_HTML: string = ""',
+        'export const BUILD_STAMP: string = "stub"',
+        ''
+      ].join('\n')
     )
   }
 }
@@ -183,6 +196,13 @@ async function main(): Promise<void> {
   writeGenerated(generated.sandbox, `export const SANDBOX_BUNDLE: string = ${JSON.stringify(sandboxBundle)}\n`)
   log(`sandbox bundle: ${Math.round(sandboxBundle.length / 1024)} KiB`)
 
+  // The same document the single-file builds inline as srcdoc, written out as a
+  // page. An MCP Apps host forbids eval, and srcdoc inherits that policy, so the
+  // view frames this cross-origin copy instead. One definition, three uses.
+  const runnerHtml = sandboxDocument(sandboxBundle)
+  mkdirSync(join(standaloneDir, 'dist'), { recursive: true })
+  writeFileSync(join(standaloneDir, 'dist', 'runner.html'), runnerHtml)
+
   // 3. The kiosk page (runner only), which is also the template the CLI fills in.
   runTs0(ts0, ['build', '--config', 'ts0.kiosk.json'], standaloneDir, 'kiosk')
   const kioskPath = join(standaloneDir, 'dist', 'jsperf-kiosk.html')
@@ -204,6 +224,22 @@ async function main(): Promise<void> {
   const packPath = join(standaloneDir, 'dist', 'jsperf-pack.mjs')
   chmodSync(packPath, 0o755)
 
+  // 6. The MCP App view, and the server that serves it. The view is what a
+  //    Claude conversation renders inline; the server hands it the case and the
+  //    runner origin, and serves the runner page itself.
+  runTs0(ts0, ['build', '--config', 'ts0.mcpapp.json'], standaloneDir, 'MCP App view')
+  const mcpAppPath = join(standaloneDir, 'dist', 'jsperf-mcp-app.html')
+  writeGenerated(
+    generated.mcpAssets,
+    [
+      `export const APP_HTML: string = ${JSON.stringify(readFileSync(mcpAppPath, 'utf-8'))}`,
+      `export const RUNNER_HTML: string = ${JSON.stringify(runnerHtml)}`,
+      `export const BUILD_STAMP: string = ${JSON.stringify(BUILD_STAMP)}`,
+      ''
+    ].join('\n')
+  )
+  runTs0(ts0, ['build'], join(standaloneDir, 'mcp'), 'MCP server')
+
   // Publish layouts. buildhost's publish action maps <binary>_<os>_<arch> to a
   // project, and cosmo/any is its multi-platform alias: one stored body served
   // for every os/arch pair, which is what a platform-neutral HTML file or Node
@@ -220,13 +256,17 @@ async function main(): Promise<void> {
   copyInto(join(standaloneDir, 'dist-site'), [
     [appPath, 'index.html'],
     [kioskPath, 'kiosk.html'],
-    [packPath, 'jsperf-pack.mjs']
+    [packPath, 'jsperf-pack.mjs'],
+    [join(standaloneDir, 'dist', 'runner.html'), 'runner.html']
   ])
 
   for (const [label, path] of [
-    ['app  ', appPath],
-    ['kiosk', kioskPath],
-    ['pack ', packPath]
+    ['app   ', appPath],
+    ['kiosk ', kioskPath],
+    ['pack  ', packPath],
+    ['runner', join(standaloneDir, 'dist', 'runner.html')],
+    ['mcp ui', mcpAppPath],
+    ['mcp   ', join(standaloneDir, 'dist', 'jsperf-mcp-server.mjs')]
   ]) {
     log(`${label} ${path} (${Math.round(statSync(path).size / 1024)} KiB)`)
   }

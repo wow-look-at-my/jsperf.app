@@ -89,7 +89,7 @@ function main(): void {
   const panelHost = el('div')
   mainEl.append(panelHost)
 
-  const panel = new BenchPanel(panelHost, SANDBOX_BUNDLE, () => testCase)
+  const panel = new BenchPanel(panelHost, { kind: 'inline', js: SANDBOX_BUNDLE }, () => testCase)
   panel.syncTests()
 
   if (testCase.autorun) {

@@ -25,6 +25,9 @@ const APP = join(dist, 'jsperf.html')
 const KIOSK = join(dist, 'jsperf-kiosk.html')
 const PACK = join(dist, 'jsperf-pack.mjs')
 const EXAMPLE = join(standaloneDir, 'examples', 'array-iteration')
+const RUNNER = join(dist, 'runner.html')
+const MCP_APP = join(dist, 'jsperf-mcp-app.html')
+const MCP_SERVER = join(dist, 'jsperf-mcp-server.mjs')
 
 /** The shape the CLI writes into a packaged page. */
 interface PackagedTest {
@@ -233,6 +236,42 @@ function verifyPackCli(): void {
   check(piped.stdout.length > 50 * 1024, 'the piped page is the whole file')
 }
 
+/**
+ * The MCP App halves. The view must be inert (no eval, nothing fetched) because
+ * its host forbids both; the runner must carry the engine, because it is the one
+ * document allowed to compile a test body. The browser smoke proves they work
+ * together under the real policy; these are the cheap structural checks.
+ */
+function verifyMcpApp(): void {
+  for (const [label, path] of [
+    ['runner page', RUNNER],
+    ['MCP App view', MCP_APP],
+    ['MCP server', MCP_SERVER]
+  ]) {
+    if (!check(existsSync(path), `${label} exists`, path)) continue
+    check(statSync(path).size > 50 * 1024, `${label} is a complete bundle`)
+  }
+  if (!existsSync(RUNNER) || !existsSync(MCP_APP)) return
+
+  const runner = read(RUNNER)
+  check(runner.startsWith('<!doctype html>'), 'the runner is a complete document')
+  check(runner.includes('jsperf-init-html'), 'the runner is the sandbox document')
+  check(runner.includes('window.Benchmark') || runner.includes('root.Benchmark'), 'the runner carries Benchmark.js')
+  check(unresolvedLocalRefs(runner).length === 0, 'the runner references no local files')
+
+  const view = read(MCP_APP)
+  check(unresolvedLocalRefs(view).length === 0, 'the MCP App view references no local files')
+  // The view cannot compile anything, so it must not contain the engine either:
+  // if Benchmark.js ever leaks into it, someone has tried to run in the wrong
+  // half and it will fail only at the point a person presses Run.
+  check(!view.includes('Benchmark.Suite'), 'the MCP App view does not embed the benchmark engine')
+  check(!view.includes('localStorage'), 'the MCP App view touches no storage')
+
+  const site = join(standaloneDir, 'dist-site', 'runner.html')
+  check(existsSync(site), 'the site layout publishes the runner page')
+  if (existsSync(site)) check(read(site) === runner, 'the published runner is the built runner')
+}
+
 function verifyPublishLayout(): void {
   for (const name of ['jsperf.app_cosmo_any', 'jsperf.app-kiosk_cosmo_any', 'jsperf.app-pack_cosmo_any']) {
     const path = join(standaloneDir, 'dist-publish', name)
@@ -253,6 +292,7 @@ if (failures === 0) {
   verifySingleFile()
   verifyKioskIsKiosk()
   verifyPackCli()
+  verifyMcpApp()
   verifyPublishLayout()
 }
 

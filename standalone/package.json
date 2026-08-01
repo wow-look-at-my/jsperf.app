@@ -11,13 +11,21 @@
     "build": "node --experimental-strip-types scripts/build.ts",
     "verify": "node --experimental-strip-types scripts/verify.ts",
     "smoke": "node --experimental-strip-types scripts/browser-smoke.ts",
-    "check": "npm run build && npm run verify && npm run smoke"
+    "check": "npm run build && npm run verify && npm run mcp-check && npm run smoke",
+    "mcp-check": "node --experimental-strip-types scripts/mcp-check.ts",
+    "mcp-serve": "node dist/jsperf-mcp-server.mjs"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "22.15.0",
     "playwright": "1.56.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.7.5",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "lodash": "4.17.21"
   }
 }
