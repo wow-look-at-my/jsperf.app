@@ -27,6 +27,12 @@ import type { TestResult } from '../shared/protocol.ts'
  * development. In a conversation the server always sends its own runner URL, and
  * it must - the host's `frame-src` allows exactly the origin the server declared
  * in `_meta.ui.csp.frameDomains`, so no other runner could load anyway.
+ *
+ * The bare project path is buildhost's canonical URL for a site file: it serves
+ * the default branch's deployment. `/branch/<branch>/` is the older spelling and
+ * still resolves, but only as a 302 to this one, so naming it here would cost a
+ * cross-origin redirect for nothing. verify.ts holds the URL to the canonical
+ * form rather than trusting it to stay right.
  */
 const DEV_RUNNER_URL = 'https://sites.pazer.build/jsperf.app/runner.html'
 
