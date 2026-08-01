@@ -28,11 +28,13 @@ import type { TestResult } from '../shared/protocol.ts'
  * it must - the host's `frame-src` allows exactly the origin the server declared
  * in `_meta.ui.csp.frameDomains`, so no other runner could load anyway.
  *
- * The `/branch/<branch>/` segment is not optional: buildhost serves site files
- * under that path and only redirects the bare project root, so the apex form
- * 404s. verify.ts checks this rather than trusting the URL to stay right.
+ * The bare project path is buildhost's canonical URL for a site file: it serves
+ * the default branch's deployment. `/branch/<branch>/` is the older spelling and
+ * still resolves, but only as a 302 to this one, so naming it here would cost a
+ * cross-origin redirect for nothing. verify.ts holds the URL to the canonical
+ * form rather than trusting it to stay right.
  */
-const DEV_RUNNER_URL = 'https://sites.pazer.build/jsperf.app/branch/main/runner.html'
+const DEV_RUNNER_URL = 'https://sites.pazer.build/jsperf.app/runner.html'
 
 const FULL_RUN_MAX_TIME = 5
 const QUICK_RUN_MAX_TIME = 0.5

@@ -267,12 +267,14 @@ function verifyMcpApp(): void {
   check(!view.includes('Benchmark.Suite'), 'the MCP App view does not embed the benchmark engine')
   check(!view.includes('localStorage'), 'the MCP App view touches no storage')
 
-  // buildhost serves site files under /{project}/branch/{branch}/{path} and
-  // redirects only the bare project root, so a file URL without the branch
-  // segment 404s. This shipped once; it is a check now rather than a habit.
+  // buildhost's canonical URL for a site file is the bare project path; the
+  // older /{project}/branch/{branch}/{path} spelling now only 302s to it. The
+  // view loads its runner cross-origin under an MCP host CSP, so a redirect
+  // there is a hop that can only cost us. Once shipped wrong in the other
+  // direction; a check rather than a habit either way.
   for (const url of view.match(/https:\/\/sites\.pazer\.build\/[^"'\s)]+/g) ?? []) {
     if (!/\.[a-z0-9]+$/i.test(url)) continue
-    check(url.includes('/branch/'), 'every site file URL in the view names a branch', url)
+    check(!url.includes('/branch/'), 'every site file URL in the view is the canonical form', url)
   }
 
   const site = join(standaloneDir, 'dist-site', 'runner.html')
