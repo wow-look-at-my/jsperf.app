@@ -267,6 +267,14 @@ function verifyMcpApp(): void {
   check(!view.includes('Benchmark.Suite'), 'the MCP App view does not embed the benchmark engine')
   check(!view.includes('localStorage'), 'the MCP App view touches no storage')
 
+  // buildhost serves site files under /{project}/branch/{branch}/{path} and
+  // redirects only the bare project root, so a file URL without the branch
+  // segment 404s. This shipped once; it is a check now rather than a habit.
+  for (const url of view.match(/https:\/\/sites\.pazer\.build\/[^"'\s)]+/g) ?? []) {
+    if (!/\.[a-z0-9]+$/i.test(url)) continue
+    check(url.includes('/branch/'), 'every site file URL in the view names a branch', url)
+  }
+
   const site = join(standaloneDir, 'dist-site', 'runner.html')
   check(existsSync(site), 'the site layout publishes the runner page')
   if (existsSync(site)) check(read(site) === runner, 'the published runner is the built runner')

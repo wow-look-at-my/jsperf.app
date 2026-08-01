@@ -27,8 +27,12 @@ import type { TestResult } from '../shared/protocol.ts'
  * development. In a conversation the server always sends its own runner URL, and
  * it must - the host's `frame-src` allows exactly the origin the server declared
  * in `_meta.ui.csp.frameDomains`, so no other runner could load anyway.
+ *
+ * The `/branch/<branch>/` segment is not optional: buildhost serves site files
+ * under that path and only redirects the bare project root, so the apex form
+ * 404s. verify.ts checks this rather than trusting the URL to stay right.
  */
-const DEV_RUNNER_URL = 'https://sites.pazer.build/jsperf.app/runner.html'
+const DEV_RUNNER_URL = 'https://sites.pazer.build/jsperf.app/branch/main/runner.html'
 
 const FULL_RUN_MAX_TIME = 5
 const QUICK_RUN_MAX_TIME = 0.5
