@@ -1,0 +1,244 @@
+/* Shared styling for both single-file builds. Plain CSS, no framework: the
+   Next.js app's Tailwind pipeline is not available here and a single file should
+   not carry a utility framework to draw one table. */
+
+:root {
+  --jsp-blue: #3b82f6;
+  --jsp-blue-dark: #1d4ed8;
+  --jsp-green: #b7e1cd;
+  --jsp-pink: #fbbfbf;
+  --jsp-border: #cbd5e1;
+  --jsp-muted: #64748b;
+  --jsp-bg-alt: #f1f5f9;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0 1rem 4rem;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #0f172a;
+  background: #fff;
+}
+
+.jsperf-page {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+header.jsperf-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 1rem 0;
+  border-bottom: 2px solid var(--jsp-blue);
+  margin-bottom: 1.5rem;
+}
+
+header.jsperf-header h1 {
+  font-size: 1.35rem;
+  margin: 0;
+}
+
+header.jsperf-header .jsperf-brand {
+  font-weight: 700;
+  color: var(--jsp-blue-dark);
+  text-decoration: none;
+}
+
+.jsperf-spacer {
+  flex: 1;
+}
+
+h2 {
+  font-size: 1.05rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+p.jsperf-note,
+.jsperf-muted {
+  color: var(--jsp-muted);
+  font-size: 0.9rem;
+}
+
+pre,
+code,
+textarea.jsperf-code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+button {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--jsp-blue-dark);
+  border-radius: 4px;
+  background: var(--jsp-blue);
+  color: #fff;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--jsp-blue-dark);
+}
+
+button.jsperf-secondary {
+  background: #fff;
+  color: var(--jsp-blue-dark);
+}
+
+button.jsperf-secondary:hover {
+  background: var(--jsp-bg-alt);
+}
+
+button.jsperf-link {
+  background: none;
+  border: none;
+  color: var(--jsp-blue-dark);
+  text-decoration: underline;
+  padding: 0.2rem;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jsperf-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+  min-height: 2.5rem;
+}
+
+.jsperf-status {
+  flex: 1;
+  min-width: 14rem;
+  margin: 0;
+}
+
+/* The sandbox iframe must exist in the layout to run, but has nothing to show. */
+iframe.jsperf-sandbox {
+  width: 0;
+  height: 0;
+  border: 0;
+  position: absolute;
+  visibility: hidden;
+}
+
+table.jsperf-results {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+table.jsperf-results caption {
+  caption-side: top;
+  background: var(--jsp-bg-alt);
+  font-weight: 700;
+  padding: 0.4rem;
+  text-align: left;
+  border: 1px solid var(--jsp-border);
+}
+
+table.jsperf-results th {
+  background: var(--jsp-blue);
+  color: #fff;
+  padding: 0.4rem;
+  text-align: left;
+  border: 1px solid var(--jsp-border);
+}
+
+table.jsperf-results td {
+  border: 1px solid var(--jsp-border);
+  padding: 0.5rem;
+  vertical-align: top;
+}
+
+td.jsperf-test-title {
+  background: var(--jsp-bg-alt);
+  font-weight: 600;
+  width: 18%;
+}
+
+td.jsperf-test-result {
+  width: 8.5rem;
+  text-align: center;
+}
+
+td.jsperf-test-result p {
+  margin: 0;
+}
+
+td.jsperf-test-result .jsperf-hz {
+  font-weight: 700;
+}
+
+td.jsperf-test-result .jsperf-relative {
+  font-size: 0.8rem;
+  color: var(--jsp-muted);
+}
+
+td.jsperf-fastest {
+  background: var(--jsp-green);
+}
+
+td.jsperf-slowest {
+  background: var(--jsp-pink);
+}
+
+td.jsperf-error {
+  background: var(--jsp-pink);
+  color: #991b1b;
+  font-weight: 700;
+}
+
+td.jsperf-error small {
+  font-weight: 400;
+  display: block;
+}
+
+details.jsperf-prep {
+  border: 1px solid var(--jsp-border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+details.jsperf-prep summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+details.jsperf-prep pre {
+  margin-top: 0.5rem;
+  max-height: 20rem;
+  overflow: auto;
+}
+
+footer.jsperf-footer {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--jsp-border);
+  color: var(--jsp-muted);
+  font-size: 0.85rem;
+}
+
+footer.jsperf-footer a {
+  color: var(--jsp-blue-dark);
+}

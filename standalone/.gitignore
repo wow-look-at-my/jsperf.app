@@ -1,0 +1,11 @@
+# Build outputs and build inputs that are generated, never committed.
+dist/
+dist-publish/
+dist-site/
+build/
+.cache/
+node_modules/
+src/generated/
+pack/src/generated/
+mcp/src/generated/
+.ts0-tsconfig*.json

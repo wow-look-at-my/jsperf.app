@@ -1,0 +1,10 @@
+{
+  "entry": "src/mcpapp/app.html",
+  "outfile": "dist/jsperf-mcp-app.html",
+  "target": "browser",
+  "format": "esm",
+  "strict": true,
+  "minify": true,
+  "sourcemap": false,
+  "embedAssets": false
+}

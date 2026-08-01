@@ -1,0 +1,9 @@
+{
+  "entry": "src/sandbox/driver.ts",
+  "outfile": "build/sandbox-driver.js",
+  "target": "browser",
+  "format": "iife",
+  "strict": true,
+  "minify": false,
+  "sourcemap": false
+}

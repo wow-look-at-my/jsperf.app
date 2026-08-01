@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  # Build the standalone single-file artifacts with ts0, assert the properties
+  # they are documented to have, then prove they actually work by running both of
+  # them in a real browser from a real file:// URL.
+  standalone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: standalone/package-lock.json
+
+      # lodash (Benchmark.js needs it), @types/node (the TypeScript harness) and
+      # playwright (the browser smoke). The published artifacts depend on nothing.
+      - name: Install build and test dependencies
+        working-directory: standalone
+        run: npm ci
+
+      - name: Build (ts0)
+        working-directory: standalone
+        run: npm run build
+
+      - name: Verify artifacts
+        working-directory: standalone
+        run: npm run verify
+
+      # Connects a real MCP client to the built server: the tool/resource wiring
+      # an MCP Apps host depends on is not visible in the artifacts themselves.
+      - name: Check the MCP App server
+        working-directory: standalone
+        run: npm run mcp-check
+
+      - name: Install chromium
+        working-directory: standalone
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke (chromium, file://)
+        working-directory: standalone
+        run: npm run smoke
+
+      # dist-publish/ carries buildhost's <binary>_<os>_<arch> naming; the
+      # publish job below self-serves this artifact.
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone
+          path: standalone/dist-publish/
+          if-no-files-found: error
+
+      - name: Upload site
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone-site
+          path: standalone/dist-site/
+          if-no-files-found: error
+
+      # The human-named copies, so a PR reviewer can download and open them
+      # without decoding the publish naming convention.
+      - name: Upload readable copies
+        uses: actions/upload-artifact@v4
+        with:
+          name: jsperf-standalone
+          path: |
+            standalone/dist/jsperf.html
+            standalone/dist/jsperf-kiosk.html
+            standalone/dist/jsperf-pack.mjs
+            standalone/dist/jsperf-mcp-app.html
+            standalone/dist/jsperf-mcp-server.mjs
+            standalone/dist/runner.html
+          if-no-files-found: error
+
+  # Publish the three artifacts to buildhost. Every branch publishes: buildhost
+  # treats the git branch as a first-class field and the apex "latest" only ever
+  # resolves the default branch, so a branch release cannot hijack what stable
+  # consumers download - while gating this on the default branch would mean the
+  # only part of CI that talks to buildhost never runs before it is merged.
+  #
+  # File names map to projects by buildhost's own convention:
+  #   jsperf.app_cosmo_any        -> jsperf.app        (the localStorage app)
+  #   jsperf.app-kiosk_cosmo_any  -> jsperf.app/kiosk  (the kiosk template)
+  #   jsperf.app-pack_cosmo_any   -> jsperf.app/pack   (the packaging CLI)
+  # cosmo/any is the multi-platform alias: one stored body resolvable under every
+  # ?os=&arch= pair, which is what a platform-neutral HTML file or Node script
+  # wants.
+  publish:
+    needs: standalone
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      checks: read
+      artifact-metadata: write
+      deployments: write
+    steps:
+      - uses: wow-look-at-my/buildhost/.github/actions/buildhost-publish@master
+        with:
+          artifact_name: standalone
+
+  # Also deploy the app as a static site, so there is a URL that opens straight
+  # into a working jsPerf (index.html is the app build, kiosk.html the empty
+  # template).
+  publish-site:
+    needs: standalone
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
+      checks: read
+      artifact-metadata: write
+      deployments: write
+    steps:
+      - uses: wow-look-at-my/buildhost/.github/actions/buildhost-publish-site@master
+        with:
+          branch: ${{ github.ref_name }}
+          artifact_name: standalone-site

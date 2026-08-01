@@ -23,6 +23,21 @@ MONGODB_COLLECTION=
 
 The local development server can then be run with `yarn dev`.
 
+## Standalone single-file builds
+
+`standalone/` builds jsPerf into single HTML files that need no server, no
+database and no network &mdash; just a browser.
+
+- **`jsperf.html`** &mdash; the whole app in one file, with test cases saved in the
+  browser's `localStorage` instead of MongoDB.
+- **`jsperf-kiosk.html` + `jsperf-pack.mjs`** &mdash; package one benchmark into one
+  self-contained page: runner only, no editor. Handy for sending someone a test
+  case to run in their own browser.
+
+Downloads, the case-file layout and the CLI options are in
+[`standalone/README.md`](standalone/README.md); design notes in
+[`docs/standalone.md`](docs/standalone.md).
+
 ### Phase 1 - Complete
 - Replicate traditional functionality / workflow
 - GitHub auth / JWT auth
